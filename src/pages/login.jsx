@@ -13,18 +13,56 @@ export default function Login({
     toast
   } = useToast();
   useEffect(() => {
-    // 自动跳转到托管登录页
-    handleLogin();
+    checkLoginAndRedirect();
   }, []);
+  const checkLoginAndRedirect = async () => {
+    try {
+      console.log('检查登录状态...');
+      const tcb = await $w.cloud.getCloudInstance();
+      const authResult = await tcb.auth().getCurrentUser();
+      console.log('登录状态:', authResult);
+
+      // 如果已经登录，跳转到云盘页面
+      if (authResult && !authResult.isAnonymous) {
+        console.log('用户已登录，跳转到云盘页面');
+        $w.utils.navigateTo({
+          pageId: 'drive',
+          params: {}
+        });
+        return;
+      }
+
+      // 未登录，跳转到托管登录页
+      console.log('用户未登录，跳转到托管登录页');
+      handleLogin();
+    } catch (error) {
+      console.error('检查登录状态失败:', error);
+      // 出错时也跳转到登录页
+      handleLogin();
+    }
+  };
   const handleLogin = async () => {
     try {
       const tcb = await $w.cloud.getCloudInstance();
       console.log('准备跳转到登录页面...');
-      console.log('当前域名:', window.location.origin);
+
+      // 构建登录后的返回URL
+      const baseUrl = $w.utils.resolveStaticResourceUrl('/');
+      const s_domain = baseUrl.replace(/^https?:\/\//, '').split('/')[0];
+      const redirectUrl = `${baseUrl}?pageId=drive`;
+      console.log('登录配置:', {
+        baseUrl,
+        s_domain,
+        redirectUrl
+      });
 
       // 跳转到托管登录页
       tcb.auth().toDefaultLoginPage({
-        redirect_uri: window.location.href
+        config_version: 'env',
+        redirect_uri: redirectUrl,
+        query: {
+          s_domain: s_domain
+        }
       });
     } catch (error) {
       console.error('登录跳转失败:', error);
@@ -60,7 +98,7 @@ export default function Login({
         <Button onClick={handleLogin} className="bg-[#ff6b35] hover:bg-[#e55a2a] text-white px-8 py-3 rounded-lg font-medium transition-all duration-200" style={{
         fontFamily: 'Space Grotesk, sans-serif'
       }}>
-          跳转到登录页面
+          重新登录
         </Button>
         <p className="mt-6 text-white/50 text-sm" style={{
         fontFamily: 'JetBrains Mono, monospace'

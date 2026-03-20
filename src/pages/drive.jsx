@@ -42,6 +42,7 @@ export default function Drive({
   const [viewMode, setViewMode] = useState('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [breadcrumb, setBreadcrumb] = useState([{
     id: 'root',
     name: '我的云盘'
@@ -49,6 +50,33 @@ export default function Drive({
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareLink, setShareLink] = useState('');
   const [userOpenId, setUserOpenId] = useState('');
+  const checkLogin = async () => {
+    try {
+      setCheckingAuth(true);
+      const tcb = await $w.cloud.getCloudInstance();
+      const authResult = await tcb.auth().getCurrentUser();
+      console.log('Drive页面 - 检查登录状态:', authResult);
+      if (!authResult || authResult.isAnonymous) {
+        console.log('Drive页面 - 用户未登录，跳转到登录页');
+        $w.utils.navigateTo({
+          pageId: 'login',
+          params: {}
+        });
+      } else {
+        console.log('Drive页面 - 用户已登录:', authResult);
+        setUser(authResult);
+        setUserOpenId(authResult.uid || authResult._id || '');
+      }
+    } catch (error) {
+      console.error('Drive页面 - 检查登录状态失败:', error);
+      $w.utils.navigateTo({
+        pageId: 'login',
+        params: {}
+      });
+    } finally {
+      setCheckingAuth(false);
+    }
+  };
   useEffect(() => {
     checkLogin();
   }, []);
@@ -57,26 +85,16 @@ export default function Drive({
       loadData();
     }
   }, [userOpenId]);
-  const checkLogin = async () => {
-    try {
-      const tcb = await $w.cloud.getCloudInstance();
-      const authResult = await tcb.auth().getCurrentUser();
-      if (!authResult || authResult.isAnonymous) {
-        $w.utils.navigateTo({
-          pageId: 'login',
-          params: {}
-        });
-      } else {
-        setUser(authResult);
-        setUserOpenId(authResult.uid || authResult._id || '');
-      }
-    } catch (error) {
-      $w.utils.navigateTo({
-        pageId: 'login',
-        params: {}
-      });
-    }
-  };
+
+  // 如果正在检查登录状态，显示加载提示
+  if (checkingAuth) {
+    return <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1e3a5f] mx-auto mb-4"></div>
+          <p className="text-gray-600">正在检查登录状态...</p>
+        </div>
+      </div>;
+  }
   const loadData = async () => {
     if (!userOpenId) return;
     try {
