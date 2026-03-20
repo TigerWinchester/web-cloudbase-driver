@@ -50,51 +50,6 @@ export default function Drive({
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareLink, setShareLink] = useState('');
   const [userOpenId, setUserOpenId] = useState('');
-  const checkLogin = async () => {
-    try {
-      setCheckingAuth(true);
-      const tcb = await $w.cloud.getCloudInstance();
-      const authResult = await tcb.auth().getCurrentUser();
-      console.log('Drive页面 - 检查登录状态:', authResult);
-      if (!authResult || authResult.isAnonymous) {
-        console.log('Drive页面 - 用户未登录，跳转到登录页');
-        $w.utils.navigateTo({
-          pageId: 'login',
-          params: {}
-        });
-      } else {
-        console.log('Drive页面 - 用户已登录:', authResult);
-        setUser(authResult);
-        setUserOpenId(authResult.uid || authResult._id || '');
-      }
-    } catch (error) {
-      console.error('Drive页面 - 检查登录状态失败:', error);
-      $w.utils.navigateTo({
-        pageId: 'login',
-        params: {}
-      });
-    } finally {
-      setCheckingAuth(false);
-    }
-  };
-  useEffect(() => {
-    checkLogin();
-  }, []);
-  useEffect(() => {
-    if (userOpenId) {
-      loadData();
-    }
-  }, [userOpenId]);
-
-  // 如果正在检查登录状态，显示加载提示
-  if (checkingAuth) {
-    return <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1e3a5f] mx-auto mb-4"></div>
-          <p className="text-gray-600">正在检查登录状态...</p>
-        </div>
-      </div>;
-  }
   const loadData = async () => {
     if (!userOpenId) return;
     try {
@@ -146,26 +101,15 @@ export default function Drive({
         }
       });
 
-      // 转换文件夹数据格式
-      const formattedFolders = (foldersResult.records || []).map(f => ({
-        id: f._id,
-        name: f.name,
-        parentId: f.parentId || 'root'
-      }));
+      // 更新文件夹列表
+      if (foldersResult && foldersResult.records) {
+        setFolders(foldersResult.records);
+      }
 
-      // 转换文件数据格式
-      const formattedFiles = (filesResult.records || []).map(f => ({
-        id: f._id,
-        name: f.name,
-        parentId: f.parentId || 'root',
-        fileType: f.fileType,
-        fileSize: f.fileSize,
-        fileUrl: f.fileUrl,
-        shareToken: f.shareToken,
-        shareEnabled: f.shareEnabled
-      }));
-      setFolders(formattedFolders);
-      setFiles(formattedFiles);
+      // 更新文件列表
+      if (filesResult && filesResult.records) {
+        setFiles(filesResult.records);
+      }
     } catch (error) {
       console.error('加载数据失败:', error);
       toast({
@@ -177,6 +121,51 @@ export default function Drive({
       setLoading(false);
     }
   };
+  const checkLogin = async () => {
+    try {
+      setCheckingAuth(true);
+      const tcb = await $w.cloud.getCloudInstance();
+      const authResult = await tcb.auth().getCurrentUser();
+      console.log('Drive页面 - 检查登录状态:', authResult);
+      if (!authResult || authResult.isAnonymous) {
+        console.log('Drive页面 - 用户未登录，跳转到登录页');
+        $w.utils.navigateTo({
+          pageId: 'login',
+          params: {}
+        });
+      } else {
+        console.log('Drive页面 - 用户已登录:', authResult);
+        setUser(authResult);
+        setUserOpenId(authResult.uid || authResult._id || '');
+      }
+    } catch (error) {
+      console.error('Drive页面 - 检查登录状态失败:', error);
+      $w.utils.navigateTo({
+        pageId: 'login',
+        params: {}
+      });
+    } finally {
+      setCheckingAuth(false);
+    }
+  };
+  useEffect(() => {
+    checkLogin();
+  }, []);
+  useEffect(() => {
+    if (userOpenId) {
+      loadData();
+    }
+  }, [userOpenId]);
+
+  // 如果正在检查登录状态，显示加载提示
+  if (checkingAuth) {
+    return <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1e3a5f] mx-auto mb-4"></div>
+          <p className="text-gray-600">正在检查登录状态...</p>
+        </div>
+      </div>;
+  }
   const handleNewFolder = async (parentId = currentFolderId) => {
     const folderName = prompt('请输入文件夹名称：');
     if (!folderName) return;
