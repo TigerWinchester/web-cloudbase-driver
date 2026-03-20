@@ -3,10 +3,12 @@ import React, { useState, useEffect, useRef } from 'react';
 // @ts-ignore;
 import { Search, Grid, List, Upload, FolderPlus, Menu, Share2, LogOut, Cloud } from 'lucide-react';
 // @ts-ignore;
-import { Button, Input, useToast } from '@/components/ui';
+import { Button, Input, useToast, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui';
 
 import { FolderTree } from '@/components/FolderTree';
 import { FileGrid } from '@/components/FileGrid';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher';
+import { UserManagement } from '@/components/UserManagement';
 function Breadcrumb({
   items = [],
   onSelect,
@@ -43,6 +45,8 @@ export default function Drive({
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [theme, setTheme] = useState('dark');
+  const [activeTab, setActiveTab] = useState('files');
   const [breadcrumb, setBreadcrumb] = useState([{
     id: 'root',
     name: '我的云盘'
@@ -124,22 +128,28 @@ export default function Drive({
   const checkLogin = async () => {
     try {
       setCheckingAuth(true);
-      const tcb = await $w.cloud.getCloudInstance();
-      const authResult = await tcb.auth().getCurrentUser();
-      console.log('Drive页面 - 检查登录状态:', authResult);
-      if (!authResult || authResult.isAnonymous) {
-        console.log('Drive页面 - 用户未登录，跳转到登录页');
+
+      // 从 localStorage 获取当前用户
+      const currentUserStr = localStorage.getItem('currentUser');
+      if (!currentUserStr) {
+        console.log('未找到用户信息，跳转到登录页');
         $w.utils.navigateTo({
           pageId: 'login',
           params: {}
         });
-      } else {
-        console.log('Drive页面 - 用户已登录:', authResult);
-        setUser(authResult);
-        setUserOpenId(authResult.uid || authResult._id || '');
+        return;
+      }
+      const currentUser = JSON.parse(currentUserStr);
+      console.log('当前用户:', currentUser);
+      setUser(currentUser);
+      setUserOpenId(currentUser.id || currentUser._id || '');
+
+      // 如果当前用户是 admin，默认显示文件管理标签
+      if (currentUser.username === 'admin') {
+        setActiveTab('files');
       }
     } catch (error) {
-      console.error('Drive页面 - 检查登录状态失败:', error);
+      console.error('检查登录状态失败:', error);
       $w.utils.navigateTo({
         pageId: 'login',
         params: {}
@@ -148,8 +158,20 @@ export default function Drive({
       setCheckingAuth(false);
     }
   };
+
+  // 初始化主题
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    setTheme(savedTheme);
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
   useEffect(() => {
     checkLogin();
+    document.title = '纸老虎网盘';
   }, []);
   useEffect(() => {
     if (userOpenId) {
@@ -162,10 +184,58 @@ export default function Drive({
     return <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1e3a5f] mx-auto mb-4"></div>
-          <p className="text-gray-600">正在检查登录状态...</p>
+          <p className="text-gray-600 dark:text-gray-400">正在检查登录状态...</p>
         </div>
       </div>;
   }
+  const handleThemeChange = async newTheme => {
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    // 如果用户已登录，更新用户主题设置
+    if (user && user.id) {
+      try {
+        await $w.cloud.callDataSource({
+          dataSourceName: 'zhl_users',
+          methodName: 'wedaUpdateV2',
+          params: {
+            data: {
+              theme: newTheme
+            },
+            filter: {
+              where: {
+                $and: [{
+                  _id: {
+                    $eq: user.id
+                  }
+                }]
+              }
+            }
+          }
+        });
+
+        // 更新 localStorage 中的用户信息
+        localStorage.setItem('currentUser', JSON.stringify({
+          ...user,
+          theme: newTheme
+        }));
+      } catch (error) {
+        console.error('更新用户主题失败:', error);
+      }
+    }
+  };
+  const handleLogout = () => {
+    localStorage.removeItem('currentUser');
+    $w.utils.navigateTo({
+      pageId: 'login',
+      params: {}
+    });
+  };
   const handleNewFolder = async (parentId = currentFolderId) => {
     const folderName = prompt('请输入文件夹名称：');
     if (!folderName) return;
@@ -484,26 +554,6 @@ export default function Drive({
       handleDownload(item);
     }
   };
-  const handleLogout = async () => {
-    try {
-      const tcb = await $w.cloud.getCloudInstance();
-      await tcb.auth().signOut();
-      await tcb.auth().signInAnonymously();
-      await $w.auth.getUserInfo({
-        force: true
-      });
-      $w.utils.navigateTo({
-        pageId: 'login',
-        params: {}
-      });
-    } catch (error) {
-      toast({
-        title: '退出失败',
-        description: error.message,
-        variant: 'destructive'
-      });
-    }
-  };
   const currentItems = [...folders.filter(f => f.parentId === currentFolderId).map(f => ({
     ...f,
     type: 'folder'
@@ -513,24 +563,25 @@ export default function Drive({
   }))].filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
   return <div className={`min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 ${className}`}>
       {/* 顶部导航栏 */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-800 transition-colors">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
-            <Cloud className="w-8 h-8 text-[#1e3a5f]" />
-            <h1 className="text-2xl font-bold text-[#1e3a5f]" style={{
+            <Cloud className="w-8 h-8 text-[#1e3a5f] dark:text-blue-400" />
+            <h1 className="text-2xl font-bold text-[#1e3a5f] dark:text-blue-400" style={{
             fontFamily: 'Space Grotesk, sans-serif'
           }}>
-              CloudDrive
+              纸老虎网盘
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-600" style={{
+            <span className="text-sm text-gray-600 dark:text-gray-300" style={{
             fontFamily: 'JetBrains Mono, monospace'
           }}>
-              {user?.nickName || user?.name || '用户'}
+              {user?.username || user?.name || '用户'}
             </span>
-            <Button variant="ghost" size="icon" className="hover:bg-gray-100" onClick={handleLogout}>
-              <LogOut className="w-5 h-5 text-gray-600" />
+            <ThemeSwitcher theme={theme} onThemeChange={handleThemeChange} />
+            <Button variant="ghost" size="icon" className="hover:bg-gray-100 dark:hover:bg-gray-800" onClick={handleLogout}>
+              <LogOut className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </Button>
           </div>
         </div>
@@ -539,67 +590,122 @@ export default function Drive({
       {/* 主体内容 */}
       <div className="flex h-[calc(100vh-73px)]">
         {/* 左侧边栏 */}
-        <aside className="w-[30%] min-w-[280px] max-w-[400px] bg-gradient-to-b from-[#f5f5f5] to-[#e8e8e8] border-r border-gray-200 p-4 overflow-y-auto">
+        <aside className="w-[30%] min-w-[280px] max-w-[400px] bg-gradient-to-b from-[#f5f5f5] to-[#e8e8e8] dark:from-gray-800 dark:to-gray-900 border-r border-gray-200 dark:border-gray-800 p-4 overflow-y-auto transition-colors">
           <FolderTree folders={folders} currentFolderId={currentFolderId} onSelectFolder={handleFolderSelect} onNewFolder={handleNewFolder} onRefresh={loadData} className="h-full" />
         </aside>
 
         {/* 右侧主内容区 */}
         <main className="flex-1 flex flex-col overflow-hidden">
-          {/* 工具栏 */}
-          <div className="bg-white border-b border-gray-200 px-6 py-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex-1 flex items-center gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input type="text" placeholder="搜索文件..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10 bg-gray-50 border-gray-200 focus:border-[#1e3a5f]" style={{
-                  fontFamily: 'JetBrains Mono, monospace'
-                }} />
+          {/* 标签页 - 只有 admin 显示用户管理 */}
+          {user && user.username === 'admin' ? <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+              <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-4 transition-colors">
+                <div className="flex items-center justify-between gap-4">
+                  <TabsList className="bg-gray-100 dark:bg-gray-800">
+                    <TabsTrigger value="files" className="data-[state=active]:bg-[#ff6b35] data-[state=active]:text-white">
+                      文件管理
+                    </TabsTrigger>
+                    <TabsTrigger value="users" className="data-[state=active]:bg-[#ff6b35] data-[state=active]:text-white">
+                      用户管理
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  {activeTab === 'files' && <div className="flex-1 flex items-center gap-3">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+                        <Input type="text" placeholder="搜索文件..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:border-[#1e3a5f] dark:focus:border-blue-400 text-gray-900 dark:text-gray-100" style={{
+                    fontFamily: 'JetBrains Mono, monospace'
+                  }} />
+                      </div>
+                    </div>}
+                </div>
+                
+                {activeTab === 'files' && <div className="flex items-center gap-2 mt-4">
+                    <Breadcrumb items={breadcrumb} onSelect={handleFolderSelect} />
+                  </div>}
+              </div>
+              
+              <TabsContent value="files" className="flex-1 flex flex-col overflow-hidden m-0">
+                {/* 文件管理视图 */}
+                <div className="flex flex-col h-full">
+                  <div className="bg-white/50 dark:bg-gray-800/50 px-6 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center gap-3 transition-colors">
+                    <Button onClick={() => fileInputRef.current?.click()} className="bg-[#ff6b35] hover:bg-[#e55a2a] text-white" disabled={loading}>
+                      <Upload className="w-4 h-4 mr-2" />
+                      上传文件
+                    </Button>
+                    <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
+                    <Button onClick={() => handleNewFolder()} variant="outline" className="border-[#1e3a5f] dark:border-blue-400 text-[#1e3a5f] dark:text-blue-400 hover:bg-[#1e3a5f]/10 dark:hover:bg-blue-400/10" disabled={loading}>
+                      <FolderPlus className="w-4 h-4 mr-2" />
+                      新建文件夹
+                    </Button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-6 bg-white dark:bg-gray-900 transition-colors">
+                    <FileGrid items={currentItems} viewMode={viewMode} onDownload={handleDownload} onDelete={handleDelete} onShare={handleShare} onDoubleClick={handleDoubleClick} />
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="users" className="flex-1 overflow-auto m-0">
+                <UserManagement currentUser={user} onRefresh={() => {}} />
+              </TabsContent>
+            </Tabs> : <div className="flex flex-col h-full">
+            {/* 非管理员，只显示文件管理 */}
+              {/* 工具栏 */}
+              <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-4 transition-colors">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1 flex items-center gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+                      <Input type="text" placeholder="搜索文件..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:border-[#1e3a5f] dark:focus:border-blue-400 text-gray-900 dark:text-gray-100" style={{
+                    fontFamily: 'JetBrains Mono, monospace'
+                  }} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="icon" className={viewMode === 'grid' ? 'bg-[#1e3a5f] hover:bg-[#1e3a5f]/80' : 'hover:bg-gray-100 dark:hover:bg-gray-800'} onClick={() => setViewMode('grid')}>
+                      <Grid className="w-5 h-5" />
+                    </Button>
+                    <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="icon" className={viewMode === 'list' ? 'bg-[#1e3a5f] hover:bg-[#1e3a5f]/80' : 'hover:bg-gray-100 dark:hover:bg-gray-800'} onClick={() => setViewMode('list')}>
+                      <List className="w-5 h-5" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-4">
+                  <Breadcrumb items={breadcrumb} onSelect={handleFolderSelect} />
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="icon" className={viewMode === 'grid' ? 'bg-[#1e3a5f] hover:bg-[#1e3a5f]/80' : 'hover:bg-gray-100'} onClick={() => setViewMode('grid')}>
-                  <Grid className="w-5 h-5" />
+
+              {/* 操作按钮栏 */}
+              <div className="bg-white/50 dark:bg-gray-800/50 px-6 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center gap-3 transition-colors">
+                <Button onClick={() => fileInputRef.current?.click()} className="bg-[#ff6b35] hover:bg-[#e55a2a] text-white" disabled={loading}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  上传文件
                 </Button>
-                <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="icon" className={viewMode === 'list' ? 'bg-[#1e3a5f] hover:bg-[#1e3a5f]/80' : 'hover:bg-gray-100'} onClick={() => setViewMode('list')}>
-                  <List className="w-5 h-5" />
+                <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
+                <Button onClick={() => handleNewFolder()} variant="outline" className="border-[#1e3a5f] dark:border-blue-400 text-[#1e3a5f] dark:text-blue-400 hover:bg-[#1e3a5f]/10 dark:hover:bg-blue-400/10" disabled={loading}>
+                  <FolderPlus className="w-4 h-4 mr-2" />
+                  新建文件夹
                 </Button>
               </div>
-            </div>
-            <div className="flex items-center gap-2 mt-4">
-              <Breadcrumb items={breadcrumb} onSelect={handleFolderSelect} />
-            </div>
-          </div>
 
-          {/* 操作按钮栏 */}
-          <div className="bg-white/50 px-6 py-3 border-b border-gray-200 flex items-center gap-3">
-            <Button onClick={() => fileInputRef.current?.click()} className="bg-[#ff6b35] hover:bg-[#e55a2a] text-white" disabled={loading}>
-              <Upload className="w-4 h-4 mr-2" />
-              上传文件
-            </Button>
-            <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
-            <Button onClick={() => handleNewFolder()} variant="outline" className="border-[#1e3a5f] text-[#1e3a5f] hover:bg-[#1e3a5f]/10" disabled={loading}>
-              <FolderPlus className="w-4 h-4 mr-2" />
-              新建文件夹
-            </Button>
-          </div>
-
-          {/* 文件列表区域 */}
-          <div className="flex-1 overflow-y-auto p-6">
-            <FileGrid items={currentItems} viewMode={viewMode} onDownload={handleDownload} onDelete={handleDelete} onShare={handleShare} onDoubleClick={handleDoubleClick} />
-          </div>
+              {/* 文件列表区域 */}
+              <div className="flex-1 overflow-y-auto p-6 bg-white dark:bg-gray-900 transition-colors">
+                <FileGrid items={currentItems} viewMode={viewMode} onDownload={handleDownload} onDelete={handleDelete} onShare={handleShare} onDoubleClick={handleDoubleClick} />
+              </div>
+            </div>}
         </main>
       </div>
 
       {/* 分享链接弹窗 */}
       {shareDialogOpen && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-            <h3 className="text-lg font-bold text-[#1e3a5f] mb-4" style={{
+          <div className="bg-white dark:bg-gray-900 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl transition-colors">
+            <h3 className="text-lg font-bold text-[#1e3a5f] dark:text-blue-400 mb-4" style={{
           fontFamily: 'Space Grotesk, sans-serif'
         }}>
               分享链接
             </h3>
-            <div className="bg-gray-100 rounded p-3 mb-4">
-              <p className="text-sm text-gray-600 break-all" style={{
+            <div className="bg-gray-100 dark:bg-gray-800 rounded p-3 mb-4">
+              <p className="text-sm text-gray-600 dark:text-gray-300 break-all" style={{
             fontFamily: 'JetBrains Mono, monospace'
           }}>
                 {shareLink}
@@ -612,10 +718,10 @@ export default function Drive({
               title: '已复制',
               description: '分享链接已复制到剪贴板'
             });
-          }} className="flex-1 bg-[#1e3a5f] hover:bg-[#1e3a5f]/80">
+          }} className="flex-1 bg-[#1e3a5f] dark:bg-blue-600 hover:bg-[#1e3a5f]/80 dark:hover:bg-blue-500">
                 复制链接
               </Button>
-              <Button onClick={() => setShareDialogOpen(false)} variant="outline" className="flex-1 border-[#1e3a5f] text-[#1e3a5f] hover:bg-[#1e3a5f]/10">
+              <Button onClick={() => setShareDialogOpen(false)} variant="outline" className="flex-1 border-[#1e3a5f] dark:border-blue-400 text-[#1e3a5f] dark:text-blue-400 hover:bg-[#1e3a5f]/10 dark:hover:bg-blue-400/10">
                 关闭
               </Button>
             </div>
