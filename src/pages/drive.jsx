@@ -197,27 +197,35 @@ export default function Drive({
       document.documentElement.classList.remove('dark');
     }
 
-    // 如果用户已登录，更新 localStorage 中的用户信息
-    if (user && user.id) {
+    // 如果用户已登录，更新数据库中的用户主题
+    if (user && user._id) {
       try {
-        // 从 localStorage 读取用户列表
-        const usersStr = localStorage.getItem('zhl_users');
-        if (usersStr) {
-          const users = JSON.parse(usersStr);
-          const updatedUsers = users.map(u => u.id === user.id ? {
-            ...u,
-            theme: newTheme
-          } : u);
-          localStorage.setItem('zhl_users', JSON.stringify(updatedUsers));
+        await $w.cloud.callDataSource({
+          dataSourceName: 'zhl_users',
+          methodName: 'wedaUpdateV2',
+          params: {
+            data: {
+              theme: newTheme
+            },
+            filter: {
+              where: {
+                $and: [{
+                  _id: {
+                    $eq: user._id
+                  }
+                }]
+              }
+            }
+          }
+        });
 
-          // 更新当前用户信息
-          const updatedUser = {
-            ...user,
-            theme: newTheme
-          };
-          localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-          setUser(updatedUser);
-        }
+        // 更新当前用户信息和 localStorage
+        const updatedUser = {
+          ...user,
+          theme: newTheme
+        };
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        setUser(updatedUser);
       } catch (error) {
         console.error('更新用户主题失败:', error);
       }

@@ -5,22 +5,6 @@ import { Lock, User, Eye, EyeOff } from 'lucide-react';
 // @ts-ignore;
 import { Button, Input, useToast } from '@/components/ui';
 
-// 默认用户列表（首次登录时使用）
-const DEFAULT_USERS = [{
-  id: 'admin_001',
-  username: 'admin',
-  password: 'admin123',
-  role: 'admin',
-  theme: 'dark',
-  createdAt: Date.now()
-}, {
-  id: 'user_001',
-  username: 'user',
-  password: 'user123',
-  role: 'user',
-  theme: 'dark',
-  createdAt: Date.now()
-}];
 export default function Login({
   $w,
   className = ''
@@ -34,20 +18,12 @@ export default function Login({
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     document.title = '纸老虎网盘 - 登录';
-
-    // 初始化默认用户（如果不存在）
-    const existingUsers = localStorage.getItem('zhl_users');
-    if (!existingUsers) {
-      localStorage.setItem('zhl_users', JSON.stringify(DEFAULT_USERS));
-    }
     checkLoginAndRedirect();
   }, []);
   const checkLoginAndRedirect = async () => {
     try {
       const currentUserStr = localStorage.getItem('currentUser');
       if (currentUserStr) {
-        const currentUser = JSON.parse(currentUserStr);
-        console.log('用户已登录:', currentUser);
         $w.utils.navigateTo({
           pageId: 'drive',
           params: {}
@@ -75,36 +51,55 @@ export default function Login({
     }
     setLoading(true);
     try {
-      // 从 localStorage 获取用户列表
-      const usersStr = localStorage.getItem('zhl_users');
-      if (!usersStr) {
-        throw new Error('用户系统未初始化');
-      }
-      const users = JSON.parse(usersStr);
-      const user = users.find(u => u.username === username && u.password === password);
-      if (user) {
-        console.log('登录成功:', user);
-
-        // 保存当前用户信息
-        localStorage.setItem('currentUser', JSON.stringify(user));
-        toast({
-          title: '登录成功',
-          description: '正在跳转到云盘...'
-        });
-        setTimeout(() => {
-          $w.utils.navigateTo({
-            pageId: 'drive',
-            params: {}
-          });
-        }, 500);
-      } else {
+      // 使用数据库查询用户
+      const result = await $w.cloud.callDataSource({
+        dataSourceName: 'zhl_users',
+        methodName: 'wedaGetRecordsV2',
+        params: {
+          filter: {
+            where: {
+              $and: [{
+                username: {
+                  $eq: username
+                }
+              }, {
+                password: {
+                  $eq: password
+                }
+              }]
+            }
+          },
+          select: {
+            $master: true
+          },
+          getCount: true,
+          pageSize: 1,
+          pageNumber: 1
+        }
+      });
+      if (!result || !result.records || result.records.length === 0) {
         throw new Error('用户名或密码错误');
       }
+      const user = result.records[0];
+      console.log('登录成功:', user);
+
+      // 保存用户信息到 localStorage
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      toast({
+        title: '登录成功',
+        description: '正在跳转到云盘...'
+      });
+      setTimeout(() => {
+        $w.utils.navigateTo({
+          pageId: 'drive',
+          params: {}
+        });
+      }, 500);
     } catch (error) {
       console.error('登录失败:', error);
       toast({
         title: '登录失败',
-        description: error.message || '请检查用户名和密码',
+        description: error.message || '登录过程中出现错误',
         variant: 'destructive'
       });
     } finally {
@@ -131,7 +126,7 @@ export default function Login({
         
         <form onSubmit={handleLogin} className="space-y-6">
           <div className="space-y-2">
-            <label htmlFor="username" className="text-white text-sm font-medium">用户名</label>
+            <label htmlFor="username" className="text-white font-medium">用户名</label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <Input id="username" type="text" placeholder="请输入用户名" value={username} onChange={e => setUsername(e.target.value)} className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/20" disabled={loading} />
@@ -139,7 +134,7 @@ export default function Login({
           </div>
           
           <div className="space-y-2">
-            <label htmlFor="password" className="text-white text-sm font-medium">密码</label>
+            <label htmlFor="password" className="text-white font-medium">密码</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <Input id="password" type={showPassword ? 'text' : 'password'} placeholder="请输入密码" value={password} onChange={e => setPassword(e.target.value)} className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/20" disabled={loading} />
@@ -156,20 +151,16 @@ export default function Login({
           </Button>
         </form>
         
-        <div className="mt-6 p-4 bg-white/5 rounded-lg">
-          <p className="text-white/60 text-sm mb-2" style={{
+        <div className="mt-6 p-4 bg-white/10 rounded-lg backdrop-blur-sm">
+          <p className="text-white/90 text-sm mb-2" style={{
           fontFamily: 'JetBrains Mono, monospace'
         }}>
             默认测试账号：
           </p>
-          <p className="text-white/80 text-xs" style={{
-          fontFamily: 'JetBrains Mono, monospace'
-        }}>
+          <p className="text-white/70 text-xs mb-1">
             管理员：admin / admin123
           </p>
-          <p className="text-white/80 text-xs" style={{
-          fontFamily: 'JetBrains Mono, monospace'
-        }}>
+          <p className="text-white/70 text-xs">
             普通用户：user / user123
           </p>
         </div>
