@@ -1,0 +1,30 @@
+[
+  {
+    "_id": "folder_001",
+    "name": "工作文档",
+    "parentId": "",
+    "createdAt": 1773976692000,
+    "updatedAt": 1773976692000
+  },
+  {
+    "_id": "folder_002",
+    "name": "图片素材",
+    "parentId": "",
+    "createdAt": 1773976693000,
+    "updatedAt": 1773976693000
+  },
+  {
+    "_id": "folder_003",
+    "name": "项目资料",
+    "parentId": "folder_001",
+    "createdAt": 1773976694000,
+    "updatedAt": 1773976694000
+  },
+  {
+    "_id": "folder_004",
+    "name": "备份文件",
+    "parentId": "",
+    "createdAt": 1773976695000,
+    "updatedAt": 1773976695000
+  }
+]

@@ -1,0 +1,86 @@
+[
+  {
+    "_id": "file_001",
+    "name": "项目计划书.pdf",
+    "parentId": "folder_001",
+    "fileUrl": "https://cloud.example.com/files/project_plan.pdf",
+    "fileSize": 2048576,
+    "fileType": "document",
+    "shareToken": "share_token_001",
+    "shareEnabled": true,
+    "createdAt": 1773976692000,
+    "updatedAt": 1773976692000
+  },
+  {
+    "_id": "file_002",
+    "name": "会议记录.docx",
+    "parentId": "folder_001",
+    "fileUrl": "https://cloud.example.com/files/meeting_notes.docx",
+    "fileSize": 524288,
+    "fileType": "document",
+    "shareToken": "",
+    "shareEnabled": false,
+    "createdAt": 1773976693000,
+    "updatedAt": 1773976693000
+  },
+  {
+    "_id": "file_003",
+    "name": "产品图片.jpg",
+    "parentId": "folder_002",
+    "fileUrl": "https://cloud.example.com/files/product_image.jpg",
+    "fileSize": 3145728,
+    "fileType": "image",
+    "shareToken": "share_token_003",
+    "shareEnabled": true,
+    "createdAt": 1773976694000,
+    "updatedAt": 1773976694000
+  },
+  {
+    "_id": "file_004",
+    "name": "宣传视频.mp4",
+    "parentId": "folder_002",
+    "fileUrl": "https://cloud.example.com/files/promo_video.mp4",
+    "fileSize": 52428800,
+    "fileType": "video",
+    "shareToken": "",
+    "shareEnabled": false,
+    "createdAt": 1773976695000,
+    "updatedAt": 1773976695000
+  },
+  {
+    "_id": "file_005",
+    "name": "设计稿.png",
+    "parentId": "folder_002",
+    "fileUrl": "https://cloud.example.com/files/design_draft.png",
+    "fileSize": 10485760,
+    "fileType": "image",
+    "shareToken": "share_token_005",
+    "shareEnabled": true,
+    "createdAt": 1773976696000,
+    "updatedAt": 1773976696000
+  },
+  {
+    "_id": "file_006",
+    "name": "合同备份.pdf",
+    "parentId": "folder_003",
+    "fileUrl": "https://cloud.example.com/files/contract_backup.pdf",
+    "fileSize": 4194304,
+    "fileType": "document",
+    "shareToken": "",
+    "shareEnabled": false,
+    "createdAt": 1773976697000,
+    "updatedAt": 1773976697000
+  },
+  {
+    "_id": "file_007",
+    "name": "系统日志.txt",
+    "parentId": "folder_004",
+    "fileUrl": "https://cloud.example.com/files/system_log.txt",
+    "fileSize": 102400,
+    "fileType": "document",
+    "shareToken": "",
+    "shareEnabled": false,
+    "createdAt": 1773976698000,
+    "updatedAt": 1773976698000
+  }
+]

@@ -1,0 +1,41 @@
+{
+  "name": "cloud_files",
+  "title": "云盘文件",
+  "schemas": [
+    {
+      "name": "name",
+      "title": "文件名称",
+      "type": "String"
+    },
+    {
+      "name": "parentId",
+      "title": "父文件夹ID",
+      "type": "String"
+    },
+    {
+      "name": "fileUrl",
+      "title": "文件URL",
+      "type": "String"
+    },
+    {
+      "name": "fileSize",
+      "title": "文件大小",
+      "type": "Number"
+    },
+    {
+      "name": "fileType",
+      "title": "文件类型",
+      "type": "String"
+    },
+    {
+      "name": "shareToken",
+      "title": "分享令牌",
+      "type": "String"
+    },
+    {
+      "name": "shareEnabled",
+      "title": "是否开启分享",
+      "type": "Boolean"
+    }
+  ]
+}

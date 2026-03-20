@@ -1,0 +1,16 @@
+{
+  "name": "cloud_folders",
+  "title": "云盘文件夹",
+  "schemas": [
+    {
+      "name": "name",
+      "title": "文件夹名称",
+      "type": "String"
+    },
+    {
+      "name": "parentId",
+      "title": "父文件夹ID",
+      "type": "String"
+    }
+  ]
+}
