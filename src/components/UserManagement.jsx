@@ -30,23 +30,11 @@ export function UserManagement({
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const result = await $w.cloud.callDataSource({
-        dataSourceName: 'zhl_users',
-        methodName: 'wedaGetRecordsV2',
-        params: {
-          filter: {
-            where: {}
-          },
-          select: {
-            $master: true
-          },
-          getCount: true,
-          pageSize: 100,
-          pageNumber: 1
-        }
-      });
-      if (result && result.records) {
-        setUsers(result.records);
+      const tcb = await $w.cloud.getCloudInstance();
+      const db = tcb.database();
+      const result = await db.collection('zhl_users').orderBy('createdAt', 'desc').get();
+      if (result && result.data) {
+        setUsers(result.data);
       }
     } catch (error) {
       console.error('加载用户失败:', error);
@@ -90,21 +78,9 @@ export function UserManagement({
       return;
     }
     try {
-      await $w.cloud.callDataSource({
-        dataSourceName: 'zhl_users',
-        methodName: 'wedaDeleteV2',
-        params: {
-          filter: {
-            where: {
-              $and: [{
-                _id: {
-                  $eq: user._id
-                }
-              }]
-            }
-          }
-        }
-      });
+      const tcb = await $w.cloud.getCloudInstance();
+      const db = tcb.database();
+      await db.collection('zhl_users').doc(user._id).remove();
       toast({
         title: '删除成功',
         description: `用户 "${user.username}" 已删除`
@@ -130,43 +106,27 @@ export function UserManagement({
       return;
     }
     try {
+      const tcb = await $w.cloud.getCloudInstance();
+      const db = tcb.database();
       if (editingUser) {
-        await $w.cloud.callDataSource({
-          dataSourceName: 'zhl_users',
-          methodName: 'wedaUpdateV2',
-          params: {
-            data: {
-              username: formData.username,
-              password: formData.password,
-              role: formData.role
-            },
-            filter: {
-              where: {
-                $and: [{
-                  _id: {
-                    $eq: editingUser._id
-                  }
-                }]
-              }
-            }
-          }
+        await db.collection('zhl_users').doc(editingUser._id).update({
+          username: formData.username,
+          password: formData.password,
+          role: formData.role,
+          updatedAt: Date.now()
         });
         toast({
           title: '更新成功',
           description: `用户 "${formData.username}" 已更新`
         });
       } else {
-        const result = await $w.cloud.callDataSource({
-          dataSourceName: 'zhl_users',
-          methodName: 'wedaCreateV2',
-          params: {
-            data: {
-              username: formData.username,
-              password: formData.password,
-              role: formData.role,
-              theme: 'dark'
-            }
-          }
+        await db.collection('zhl_users').add({
+          username: formData.username,
+          password: formData.password,
+          role: formData.role,
+          theme: 'dark',
+          createdAt: Date.now(),
+          updatedAt: Date.now()
         });
         toast({
           title: '创建成功',

@@ -51,36 +51,18 @@ export default function Login({
     }
     setLoading(true);
     try {
-      // 使用数据库查询用户
-      const result = await $w.cloud.callDataSource({
-        dataSourceName: 'zhl_users',
-        methodName: 'wedaGetRecordsV2',
-        params: {
-          filter: {
-            where: {
-              $and: [{
-                username: {
-                  $eq: username
-                }
-              }, {
-                password: {
-                  $eq: password
-                }
-              }]
-            }
-          },
-          select: {
-            $master: true
-          },
-          getCount: true,
-          pageSize: 1,
-          pageNumber: 1
-        }
-      });
-      if (!result || !result.records || result.records.length === 0) {
+      // 使用云开发原生 SDK 直接查询数据库
+      const tcb = await $w.cloud.getCloudInstance();
+      const db = tcb.database();
+      const _ = db.command;
+      const result = await db.collection('zhl_users').where({
+        username: _.eq(username),
+        password: _.eq(password)
+      }).get();
+      if (!result.data || result.data.length === 0) {
         throw new Error('用户名或密码错误');
       }
-      const user = result.records[0];
+      const user = result.data[0];
       console.log('登录成功:', user);
 
       // 保存用户信息到 localStorage

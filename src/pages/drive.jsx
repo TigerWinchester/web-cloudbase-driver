@@ -200,23 +200,10 @@ export default function Drive({
     // 如果用户已登录，更新数据库中的用户主题
     if (user && user._id) {
       try {
-        await $w.cloud.callDataSource({
-          dataSourceName: 'zhl_users',
-          methodName: 'wedaUpdateV2',
-          params: {
-            data: {
-              theme: newTheme
-            },
-            filter: {
-              where: {
-                $and: [{
-                  _id: {
-                    $eq: user._id
-                  }
-                }]
-              }
-            }
-          }
+        const tcb = await $w.cloud.getCloudInstance();
+        const db = tcb.database();
+        await db.collection('zhl_users').doc(user._id).update({
+          theme: newTheme
         });
 
         // 更新当前用户信息和 localStorage
